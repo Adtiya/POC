@@ -1,0 +1,75 @@
+# Render Blueprint for Enterprise AI System
+# This file can be used to deploy the entire system with one click
+
+services:
+  # User Service - Authentication and User Management
+  - type: web
+    name: enterprise-user-service
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python src/main.py
+    rootDir: user_service
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///database/app.db
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  # LLM Service - AI Integration
+  - type: web
+    name: enterprise-llm-service
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python src/main.py
+    rootDir: llm_service
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false  # User must provide this manually
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: enterprise-user-service
+          envVarKey: SECRET_KEY
+      - key: JWT_SECRET_KEY
+        fromService:
+          type: web
+          name: enterprise-user-service
+          envVarKey: JWT_SECRET_KEY
+      - key: DATABASE_URL
+        value: sqlite:///database/llm.db
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  # Frontend - React Application
+  - type: web
+    name: enterprise-ai-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: npm run build
+    staticPublishPath: dist
+    rootDir: frontend
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: enterprise-user-service
+          property: url
+      - key: VITE_LLM_API_BASE_URL
+        fromService:
+          type: web
+          name: enterprise-llm-service
+          property: url
+
